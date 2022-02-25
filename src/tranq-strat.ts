@@ -10,6 +10,8 @@ const {
 const { SUSHI_ROUTER } = require('./sushiABI.js');
 require('dotenv').config();
 
+const { decrypt } = require('./security/crpyto.js')
+
 //Create web3 instance
 //testnet
 const HMY_TESTNET_RPC_URL = 'https://api.s0.b.hmny.io';
@@ -31,15 +33,15 @@ const TRANQAddress = '0xcf1709ad76a79d5a60210f23e81ce2460542a836';
 const USDC1Address = '0x985458e523db3d53125813ed68c274899e9dfab4';
 const WBTC1Address = '0x3095c7557bcb296ccc6e363de01b760ba031f2d9';
 const BTC1Address = '0xdc54046c0451f9269fee1840aec808d36015697d';
-const WONEAddress = '0xcf664087a5bb0237a0bad6742852ec6c8d69a27a'
+const WONEAddress = '0xcf664087a5bb0237a0bad6742852ec6c8d69a27a';
 
 //sushi addresses
 const sushiRouterAddress = '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506';
 
 let nonce: number = 0;
 
-async function run() {
-  let account = web3.eth.accounts.privateKeyToAccount(process.env.HMY_P_KEY);
+async function tranqStrat() {
+  let account = web3.eth.accounts.privateKeyToAccount(decrypt(process.env.HMY_P_KEY));
   web3.eth.accounts.wallet.add(account);
   web3.eth.defaultAccount = account.address;
 
@@ -51,7 +53,7 @@ async function run() {
   await claimLendingRewards(myAddress);
   await claimLockedStakingRewards(myAddress);
 
-  // //TRANQ goes back in to the locked staking vault
+  //TRANQ goes back in to the locked staking vault
   const tranqBalance = await getBalanceOf(myAddress, TRANQAddress);
   console.log('TRANQ balance: ', tranqBalance)
   if (tranqBalance > 1e17) {
@@ -245,25 +247,24 @@ const sushiSwapTokens = async (myAddress: string, bal: number, swapRoute: string
 }
 
 const swapTokensFor1BTC = async (myAddress: string) => {
+  console.log("Swap reward tokens for 1BTC")
   //get balance of other tokens
   //SWAP all other rewards to 1BTC
   const tokens = [WONEAddress, ETH1Address, stOneAddress, USDT1Address, USDC1Address, WBTC1Address]
-  let nonce = await web3.eth.getTransactionCount(myAddress);
 
-  //TODO: check that this works as expected
-  for (const token in tokens) {
-    const bal = await getBalanceOf(myAddress, token)
-    console.log(token, ' balance: ', bal)
+  for (const i in tokens) {
+    console.log(tokens[i])
+    const bal = await getBalanceOf(myAddress, tokens[i])
+    console.log(tokens[i], ' balance: ', bal)
     if (bal > 0) {
       try {
-        await sushiSwapTokens(myAddress, bal, [token, BTC1Address])
+        await sushiSwapTokens(myAddress, bal, [tokens[i], BTC1Address])
       } catch (error) {
         try {
-          console.log("failed to get value for direct swap from, trying WONE route: ", token )
-          await sushiSwapTokens(myAddress, bal, [token, WONEAddress, BTC1Address])
+          console.log("failed to get value for direct swap from, trying WONE route: ", tokens[i] )
+          await sushiSwapTokens(myAddress, bal, [tokens[i], WONEAddress, BTC1Address])
         } catch (e) {
-          console.log('Unable to get price for: ', token)
-          // console.log(e)
+          console.log('Unable to get price for: ', tokens[i])
         }
       }
     }
@@ -310,7 +311,7 @@ const deposit1BTCToTranqLending = async (myAddress: string) => {
   console.log("1BTC deposited to tranq lending!")
 }
 
-run()
+tranqStrat()
 
 
 
