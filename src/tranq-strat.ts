@@ -223,27 +223,27 @@ const sushiSwapTokens = async (myAddress: string, bal: number, swapRoute: string
   })
 
   const amounts = await sushiContract.methods.getAmountsOut(bal, swapRoute).call();
-    console.log(bal, ' of ', swapRoute[0], ' is worth ', amounts, '1BTC');
+  console.log(bal, ' of ', swapRoute[0], ' is worth ', amounts, '1BTC');
 
-    if (amounts[amounts.length - 1] > 10) {
-      try {
-        const success = await sushiContract.methods.swapExactTokensForTokens(
-          bal, 
-          Math.floor(amounts[amounts.length - 1] * 0.95),
-          swapRoute, 
-          myAddress, 
-          Math.round(Date.now() / 1000) + 60
-        ).send({ 
-          gas: '1000000',
-          nonce: nonce++
-        })
+  if (amounts[amounts.length - 1] > 10) {
+    try {
+      const success = await sushiContract.methods.swapExactTokensForTokens(
+        bal, 
+        Math.floor(amounts[amounts.length - 1] * 0.95),
+        swapRoute, 
+        myAddress, 
+        Math.round(Date.now() / 1000) + 60
+      ).send({ 
+        gas: '1000000',
+        nonce: nonce++
+      })
 
-        console.log(swapRoute[0], " Swap success!")
-      } catch (e) {
-        console.log("Swap failed")
-        // console.log(e)
-      }
+      console.log(swapRoute[0], " Swap success!")
+    } catch (e) {
+      console.log("Swap failed")
+      // console.log(e)
     }
+  }
 }
 
 const swapTokensFor1BTC = async (myAddress: string) => {

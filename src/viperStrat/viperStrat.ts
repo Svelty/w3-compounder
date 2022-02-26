@@ -94,7 +94,7 @@ const depositToViperPit = async (myAddress: string) => {
   const viperBalance = await viperContract.methods.balanceOf(myAddress).call();
   console.log("viper balance: ", viperBalance);
 
-  console.log(await viperPitContract.methods.enter(viperBalance).send())
+  await viperPitContract.methods.enter(viperBalance).send()
   console.log("Viper deposited to pit")
 }
 
@@ -160,7 +160,7 @@ const claimLPPoolRewards = async (myAddress: string) => {
     }
   }
 
-  console.log(await masterBreederContract.methods.claimRewards(rewardPools).send())
+  await masterBreederContract.methods.claimRewards(rewardPools).send();
   console.log("LP reards claimed!")
 }
 
