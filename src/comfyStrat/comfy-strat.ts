@@ -43,12 +43,15 @@ async function comfyStrat() {
   nonce = await web3.eth.getTransactionCount(myAddress);
 
   await claimComfyFarmRewards(myAddress);
-  await claimZenDenRewards(myAddress);
 
-  const cshareBalance = await getBalanceOf(web3, myAddress, CSHARE_ADDRESS)
-  // console.log(cshareBalance, " cshare, depositing half to zenden")
-  // const halfOfCshare = Math.floor(cshareBalance / 2);
-  await depositToZenDen(myAddress, cshareBalance)
+  if (await zenDenCanWithdraw(myAddress)) {
+    await claimZenDenRewards(myAddress);
+    const cshareBalance = await getBalanceOf(web3, myAddress, CSHARE_ADDRESS)
+    // console.log(cshareBalance, " cshare, depositing half to zenden")
+    // const halfOfCshare = Math.floor(cshareBalance / 2);
+    await depositToZenDen(myAddress, cshareBalance)
+  }
+
 
   await swapAndPool(myAddress, COMFY_ADDRESS);
   await swapAndPool(myAddress, CSHARE_ADDRESS);
@@ -91,23 +94,25 @@ const poolWithWONE = async (myAddress: string, token: string) => {
   })
 
   const balance: number = await getBalanceOf(web3, myAddress, token);
-  const amounts = await viperContract.methods.getAmountsOut(balance, [token, WONE_ADDRESS]).call();
+  if (balance > 0) {
+    const amounts = await viperContract.methods.getAmountsOut(balance, [token, WONE_ADDRESS]).call();
 
-  try {
-    await viperContract.methods.addLiquidity(
-      token,
-      WONE_ADDRESS,
-      balance,
-      amounts[1],
-      Math.floor(balance * 0.95).toString(),
-      Math.floor(amounts[1] * 0.95).toString(),
-      myAddress,
-      Math.round(Date.now() / 1000) + 60,
-    ).send({ nonce: nonce++ })
-    console.log("Liquidity add for WONE, ", token, " pool")
-  } catch (e) {
-    console.log("Failed to add liquidity")
-    console.log(e)
+    try {
+      await viperContract.methods.addLiquidity(
+        token,
+        WONE_ADDRESS,
+        balance,
+        amounts[1],
+        Math.floor(balance * 0.95).toString(),
+        Math.floor(amounts[1] * 0.95).toString(),
+        myAddress,
+        Math.round(Date.now() / 1000) + 60,
+      ).send({ nonce: nonce++ })
+      console.log("Liquidity add for WONE, ", token, " pool")
+    } catch (e) {
+      console.log("Failed to add liquidity")
+      console.log(e)
+    }
   }
 }
 
@@ -121,31 +126,32 @@ const swapHalfToWONE = async (myAddress: string, token: string) => {
   })
 
   const balance: number = await getBalanceOf(web3, myAddress, token);
-  const bal = Math.floor(balance / 2).toString()
-  console.log(balance)
-  console.log(bal)
+  if (balance > 0) {
+    const bal = Math.floor(balance / 2).toString()
 
-  const amounts = await viperContract.methods.getAmountsOut(bal, [token, WONE_ADDRESS]).call();
-  console.log(bal, ' of ', token, ' is worth ', amounts, 'wone');
+    const amounts = await viperContract.methods.getAmountsOut(bal, [token, WONE_ADDRESS]).call();
+    console.log(bal, ' of ', token, ' is worth ', amounts, 'wone');
 
-  let success = null;
-  if (amounts[amounts.length - 1] > 0) {
-    try {
-      success = await viperContract.methods.swapExactTokensForTokens(
-        bal, 
-        Math.floor(amounts[amounts.length - 1] * 0.95).toString(),
-        [token, WONE_ADDRESS], 
-        myAddress, 
-        Math.round(Date.now() / 1000) + 60
-      ).send({ nonce: nonce++ })
+    let success = null;
+    if (amounts[amounts.length - 1] > 0) {
+      try {
+        success = await viperContract.methods.swapExactTokensForTokens(
+          bal, 
+          Math.floor(amounts[amounts.length - 1] * 0.95).toString(),
+          [token, WONE_ADDRESS], 
+          myAddress, 
+          Math.round(Date.now() / 1000) + 60
+        ).send({ nonce: nonce++ })
 
-      console.log(token, " Swap success!")
-    } catch (e) {
-      console.log("Swap failed")
-      console.log(e)
+        console.log(token, " Swap success!")
+      } catch (e) {
+        console.log("Swap failed")
+        console.log(e)
+      }
     }
+  } else {
+    console.log("no balance to swap")
   }
-
 }
 
 const depositToZenDen = async (myAddress: string, amount: number) => {
@@ -156,14 +162,18 @@ const depositToZenDen = async (myAddress: string, amount: number) => {
     gas: 1000000,
   })
 
-  const canWithdraw = await zenDenContract.methods.canWithdraw(myAddress).call();
-  if (canWithdraw) {
-    await zenDenContract.methods.stake(Math.floor(amount)).send({ nonce: nonce++ });
-    console.log("Cshare deposited to zen den!")
-  } else {
-    console.log("Rewards still locked, waiting to deposit")
-  }
-  
+  await zenDenContract.methods.stake(Math.floor(amount)).send({ nonce: nonce++ });
+  console.log("Cshare deposited to zen den!")
+}
+
+const zenDenCanWithdraw = async (myAddress: string): Promise<boolean> => {
+  const zenDenContract = new web3.eth.Contract(ZEN_DEN_ABI, ZEN_DEN_ADDRESS, {
+    from: myAddress, 
+    gasPrice: (0.000000031 * 1e18).toString(),
+    gas: 1000000,
+  })
+
+  return await zenDenContract.methods.canWithdraw(myAddress).call();
 }
 
 const claimZenDenRewards = async (myAddress: string) => {
@@ -174,18 +184,12 @@ const claimZenDenRewards = async (myAddress: string) => {
     gas: 1000000,
   })
 
-  const canWithdraw = await zenDenContract.methods.canWithdraw(myAddress).call();
-  if (canWithdraw) {
-    const earned = await zenDenContract.methods.earned(myAddress).call()
-    console.log(earned, " cshare rewards earned")
-    if (earned > 0) {
-      await zenDenContract.methods.claimReward().send({ nonce: nonce++ })
-      console.log("Zen den rewards claimed!")
-    }
-  } else {
-    console.log("Rewards locked, cannot withdraw yet");
+  const earned = await zenDenContract.methods.earned(myAddress).call()
+  console.log(earned, " comfy rewards earned")
+  if (earned > 0) {
+    await zenDenContract.methods.claimReward().send({ nonce: nonce++ })
+    console.log("Zen den rewards claimed!")
   }
-  
 }
 
 const claimComfyFarmRewards = async (myAddress: string) => {

@@ -20,7 +20,7 @@ const WSWAGMI_ADDRESS = '0xbb948620fa9cd554ef9a331b13edea9b181f9d45';
 //viper pit, deposit viper to pit
 //viper nest, deposit xViper to xVIPER -> wsWAGMI pool (this should auto claim wsWAGMI rewards)
 //viper nest, depoist wsWAGAMI to wsWAGMI -> viper pool
-
+let nonce: number = 0;
 
 async function viperStrat() {
   let account = web3.eth.accounts.privateKeyToAccount(decrypt(process.env.VIPER_P_KEY));
@@ -29,6 +29,7 @@ async function viperStrat() {
 
   const myAddress = web3.eth.defaultAccount;
   console.log(myAddress)
+  nonce = await web3.eth.getTransactionCount(myAddress);
 
   await claimLPPoolRewards(myAddress);
   await claimLockedViper(myAddress);
@@ -94,7 +95,7 @@ const depositToViperPit = async (myAddress: string) => {
   const viperBalance = await viperContract.methods.balanceOf(myAddress).call();
   console.log("viper balance: ", viperBalance);
 
-  await viperPitContract.methods.enter(viperBalance).send()
+  await viperPitContract.methods.enter(viperBalance).send({nonce: nonce++})
   console.log("Viper deposited to pit")
 }
 
@@ -121,7 +122,7 @@ const depositToViperNest = async (myAddress: string, contractAddress: string, am
   })
 
   //TODO: I should think about wrapping all method calls in try/catch
-  await wsWAGMIVIPERViperNestContract.methods.deposit(amount).send();
+  await wsWAGMIVIPERViperNestContract.methods.deposit(amount).send({nonce: nonce++});
   console.log("Deposit success")
 }
 
@@ -136,7 +137,7 @@ const claimLockedViper = async (myAddress: string) => {
   const canUnlock = await viperContract.methods.canUnlockAmount(myAddress).call();
   console.log(canUnlock, " viper available to unlock")
   if (canUnlock > 0) {
-    await viperContract.methods.unlock().send()
+    await viperContract.methods.unlock().send({nonce: nonce++})
   }
   console.log("Viper unlocked!")
 }
@@ -160,7 +161,7 @@ const claimLPPoolRewards = async (myAddress: string) => {
     }
   }
 
-  await masterBreederContract.methods.claimRewards(rewardPools).send();
+  await masterBreederContract.methods.claimRewards(rewardPools).send({nonce: nonce++});
   console.log("LP reards claimed!")
 }
 
