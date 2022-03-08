@@ -33,7 +33,7 @@ const web3 = new Web3(HMY_RPC_URL);
 let nonce: number = 0;
 
 //TODO: If this runs too often few rewards will be deposited to zenden - may change it to deposit all to zenden if available, else provide LP
-async function comfyStrat() {
+export async function comfyStrat() {
   let account = web3.eth.accounts.privateKeyToAccount(decrypt(process.env.VIPER_P_KEY));
   web3.eth.accounts.wallet.add(account);
   web3.eth.defaultAccount = account.address;
@@ -162,7 +162,7 @@ const depositToZenDen = async (myAddress: string, amount: number) => {
     gas: 1000000,
   })
 
-  await zenDenContract.methods.stake(Math.floor(amount)).send({ nonce: nonce++ });
+  await zenDenContract.methods.stake(Math.floor(amount).toString()).send({ nonce: nonce++ });
   console.log("Cshare deposited to zen den!")
 }
 
@@ -215,5 +215,3 @@ const claimComfyFarmRewards = async (myAddress: string) => {
   await cshareRewardsContract.methods.claimRewards(rewardPools).send({ nonce: nonce++ });
   console.log("Comfy LP rewards claimed!")
 }
-
-comfyStrat();

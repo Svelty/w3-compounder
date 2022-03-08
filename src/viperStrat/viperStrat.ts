@@ -22,7 +22,7 @@ const WSWAGMI_ADDRESS = '0xbb948620fa9cd554ef9a331b13edea9b181f9d45';
 //viper nest, depoist wsWAGAMI to wsWAGMI -> viper pool
 let nonce: number = 0;
 
-async function viperStrat() {
+export async function viperStrat() {
   let account = web3.eth.accounts.privateKeyToAccount(decrypt(process.env.VIPER_P_KEY));
   web3.eth.accounts.wallet.add(account);
   web3.eth.defaultAccount = account.address;
@@ -164,5 +164,3 @@ const claimLPPoolRewards = async (myAddress: string) => {
   await masterBreederContract.methods.claimRewards(rewardPools).send({nonce: nonce++});
   console.log("LP reards claimed!")
 }
-
-viperStrat()

@@ -18,7 +18,7 @@ const TRI_AUR_LP_ADDY = '0xd1654a7713617d41a8c9530fb9b948d00e162194';
 
 let nonce: number = 0;
 
-async function trisolStrat() {
+export async function trisolStrat() {
   let account = web3.eth.accounts.privateKeyToAccount(decrypt(process.env.NA_P_KEY));
   web3.eth.accounts.wallet.add(account);
   web3.eth.defaultAccount = account.address;
@@ -28,7 +28,7 @@ async function trisolStrat() {
   nonce = await web3.eth.getTransactionCount(myAddress);
 
   await harvestLPRewards(myAddress);
-
+  await new Promise(r => setTimeout(r, 2000))
   await swap(myAddress);
   console.log("sleep for 2 seconds")
   await new Promise(r => setTimeout(r, 2000))
@@ -90,16 +90,17 @@ const pool = async (myAddress: string) => {
   console.log("auroraBal: ", auroraBal)
 
   const amounts = await trisolContract.methods.getAmountsOut(triBal, [TRISOL_ADDY, AURORA_ADDY]).call();
-  console.log("tri -> aurora: ", amounts)
+  // const amounts = await trisolContract.methods.getAmountsOut(auroraBal, [AURORA_ADDY, TRISOL_ADDY]).call();
+  console.log("aurora -> tri: ", amounts)
   if (triBal > 0 && auroraBal > 0) {
     try {
       await trisolContract.methods.addLiquidity(
         TRISOL_ADDY,
         AURORA_ADDY,
         triBal,
-        auroraBal,
+        amounts[1],
         Math.floor(triBal * 0.95).toString(),
-        Math.floor(auroraBal * 0.95).toString(),
+        Math.floor(amounts[1] * 0.95).toString(),
         myAddress,
         Math.round(Date.now() / 1000) + 60,
       ).send({ nonce: nonce++ })
@@ -139,5 +140,3 @@ const harvestLPRewards = async (myAddress: string) => {
   await mchefContract.methods.harvest(1, myAddress).send({ nonce: nonce++ })
   console.log("Rewards harvested")
 }
-
-trisolStrat()

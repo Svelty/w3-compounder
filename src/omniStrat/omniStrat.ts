@@ -15,7 +15,7 @@ const LP_TOKEN_ADDRESS = '0x933F83735f26e51c61955b4fCA88F13fbd423A0C'
 
 let nonce: number = 0;
 
-async function omniStrat() {
+export async function omniStrat() {
   let account = web3.eth.accounts.privateKeyToAccount(decrypt(process.env.OMNI_KEY));
   web3.eth.accounts.wallet.add(account);
   web3.eth.defaultAccount = account.address;
@@ -27,8 +27,6 @@ async function omniStrat() {
   await harvestLPRewards(myAddress);
 
   await swap(myAddress);
-  // console.log("sleep for 2 seconds")
-  // await new Promise(r => setTimeout(r, 2000))
   await pool(myAddress);
   await farm(myAddress)
 }
@@ -43,7 +41,7 @@ const swap = async (myAddress: string) => {
   })
 
   const charmBal = await getBalanceOf(web3, myAddress, CHARM_ADDRESS);
-  console.log("Aurora: ", charmBal)
+  console.log("Charm: ", charmBal)
   const half = Math.floor(charmBal/2).toString()
 
   if (charmBal > 0) {
@@ -68,7 +66,7 @@ const swap = async (myAddress: string) => {
 
 const pool = async (myAddress: string) => {
   console.log('Deposting tokesn to LP')
-  const trisolContract = new web3.eth.Contract(SUSHI_ROUTER, ROUTER_ADDRESS, {
+  const omniContract = new web3.eth.Contract(SUSHI_ROUTER, ROUTER_ADDRESS, {
     from: myAddress, 
     gasPrice: (525 * 1e9).toString(),
     gas: 1000000,
@@ -79,11 +77,11 @@ const pool = async (myAddress: string) => {
   console.log("charm bal: ", charmBal)
   console.log("tlosBal: ", tlosBal)
 
-  const amounts = await trisolContract.methods.getAmountsOut(charmBal, [CHARM_ADDRESS, TLOS_ADDRESS]).call();
+  const amounts = await omniContract.methods.getAmountsOut(charmBal, [CHARM_ADDRESS, TLOS_ADDRESS]).call();
   console.log("charm -> tlos: ", amounts)
   if (charmBal > 0 && Number(tlosBal) > Number(amounts[1])) {
     try {
-      await trisolContract.methods.addLiquidityETH(
+      await omniContract.methods.addLiquidityETH(
         CHARM_ADDRESS,
         charmBal,
         Math.floor(charmBal * 0.95).toString(),
@@ -161,5 +159,3 @@ const harvestLPRewards = async (myAddress: string) => {
   await farmContract.methods.deposit(1, 0).send({ nonce: nonce++ })
   console.log("Rewards harvested")
 }
-
-omniStrat()

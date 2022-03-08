@@ -39,15 +39,22 @@ const BTC1Address = '0xdc54046c0451f9269fee1840aec808d36015697d';
 const WONEAddress = '0xcf664087a5bb0237a0bad6742852ec6c8d69a27a';
 const FIRA_ADDRESS = '0x2A719aF848bf365489E548BE5edbEC1D65858e59';
 const DEFIRA_MC_ADDRESS = '0xE20d839e71aF41492bBB3e52Fb2C2A87A66D076a';
+const sFIRA_ADDRESS = '0x690f506c7fb8e76d61c077ca75341a6f8ac37ed5';
 
 //sushi addresses
 const sushiRouterAddress = '0x1b02da8cb0d097eb8d57a175b88c7d8b47997506';
 const DEFIRA_ROUTER_ADDRESS = '0x3c8bf7e25ebfaafb863256a4380a8a93490d8065';
 const DEFIRA_CLAIM_REWARDS_ADDRESS = '0xfbb5c6C9E2EA2Ad46A49Ed96dc061168269df8F4';
+const UNLOCK_sFIRA_ADDRESS = '0x365ea1ad4357403b51380b0d19e14d1fe7e66a53';
 
 let nonce: number = 0;
 
-async function tranqStrat() {
+//TODO: Update fira strat to handle sFira
+//unseal contract addy: 0x365ea1aD4357403b51380B0d19E14d1fe7e66a53 - call deposit(uint256)
+//TODO: At some point change fira strat to sell some fira for UST and stake some in single staking
+//sell 25% for UST, single stake 25%, sell 25% for TRANQ to stake last 25 as LP
+
+export async function tranqStrat() {
   let account = web3.eth.accounts.privateKeyToAccount(decrypt(process.env.HMY_P_KEY));
   web3.eth.accounts.wallet.add(account);
   web3.eth.defaultAccount = account.address;
@@ -72,6 +79,38 @@ async function tranqStrat() {
   await deposit1BTCToTranqLending(myAddress)
 
   await swapAndLPFira(myAddress);
+
+  await unlockFira(myAddress)
+}
+
+const unlockFira = async (address: string) => {
+  const bal = await getBalanceOf(address, sFIRA_ADDRESS);
+
+  const contract = new web3.eth.Contract([{
+    "name": "deposit",
+    "type": "function",
+    "inputs": [
+        {
+            "internalType": "uint256",
+            "name": "amount",
+            "type": "uint256"
+        }
+    ]
+  }],
+  UNLOCK_sFIRA_ADDRESS,
+  { 
+    gas: 1000000,
+    from: address,
+    gasPrice: (0.000000031 * 1e18).toString()
+  });
+
+  try {
+    await contract.methods.deposit(bal).send({ nonce: nonce++ })
+  } catch (e) {
+    console.log("error unlocking sfira")
+  }
+
+  console.log("sfira deposited to unlock")
 }
 
 const getBalanceOf = async (address: string, tokenAddress: string): Promise<number> => {
@@ -154,6 +193,7 @@ const claimLendingRewards = async (myAddress: string) => {
 }
 
 const claimLockedStakingRewards = async (myAddress: string) => {
+  console.log("Claim locked staking rewards")
   //Claim rewards from locked TRANQ
   const lockedTranqContract = new web3.eth.Contract(TRANQ_LOCKED_STAKING_ABI, tranqLockedStakingAddress, {
     from: myAddress,
@@ -173,8 +213,8 @@ const claimLockedStakingRewards = async (myAddress: string) => {
     from: myAddress, 
     to: tranqStakingProxyAddress,
     data: claimRewards,
-    gasPrice: 0.000000031 * 1e18,
-    gas: '1000000',
+    gasPrice: (0.000000031 * 1e18).toString(),
+    gas: '2000000',
     nonce: nonce++
   })
   console.log("Locked staking rewards claimed!")
@@ -250,7 +290,7 @@ const sushiSwapTokens = async (myAddress: string, bal: number, swapRoute: string
       console.log(swapRoute[0], " Swap success!")
     } catch (e) {
       console.log("Swap failed")
-      // console.log(e)
+      console.log(e)
     }
   }
 }
@@ -469,8 +509,6 @@ const farmFIRATRANQ = async (myAddress: string) => {
   }
   
 }
-
-tranqStrat()
 
 
 
